@@ -2,6 +2,7 @@ import Cell from "./Cell"
 import SheetMemory from "./SheetMemory"
 import { ErrorMessages } from "./GlobalDefinitions";
 
+// Enumeration for operators
 enum Operator {
   Add = '+',
   Subtract = '-',
@@ -9,6 +10,7 @@ enum Operator {
   Divide = '/'
 }
 
+// Constants defining precedence levels
 const PRECEDENCE_LOW = 1;
 const PRECEDENCE_HIGH = 2;
 export class FormulaEvaluator {
@@ -50,12 +52,17 @@ export class FormulaEvaluator {
     * 
    */
 
+  /**
+     * Evaluates a formula
+     * @param formula - an array of tokens representing a formula
+     */
   evaluate(formula: FormulaType) {
     // set the this._result to the length of the formula
 
     this._errorMessage = ErrorMessages.emptyFormula;
     this._result = 0;
-
+    
+    // If formula is empty, return
     if (formula.length === 0) {
       return;
     }
@@ -64,10 +71,14 @@ export class FormulaEvaluator {
     const operators: string[] = [];
     const calculate = this.calculate.bind(this, values);
 
+    // Iterating over each token in the formula
     for (const token of formula) {
+      // If token is a number, add it to values array
       if (this.isNumber(token)) {
         values.push(Number(token));
-      } else if (this.isCellReference(token)) {
+      } 
+      // If token is a cell reference, get its value and handle errors
+      else if (this.isCellReference(token)) {
         const [value, cellError] = this.getCellValue(token);
         if (cellError) {
           this._result = value;
@@ -76,14 +87,19 @@ export class FormulaEvaluator {
         } else {
           values.push(value);
         }
-      } else {
+      } 
+      // Handle other tokens
+      else {
         this.handleToken(token, values, operators, calculate);
       }
     }
+
+    // Calculate remaining operators
     while (operators.length) {
       calculate(operators.pop()!);
     }
-        
+
+    // Set final result and error message
     if (values.length === 1 && this._errorMessage !== ErrorMessages.invalidFormula) {
       this._result = values[0];
       this._errorMessage = "";
@@ -93,6 +109,13 @@ export class FormulaEvaluator {
     } 
   }
 
+  /**
+  * Handles different tokens like operators or parentheses
+  * @param token - the current token to handle
+  * @param values - the array storing numerical values
+  * @param operators - the array storing operators
+  * @param calculate - the calculation function
+  */
   handleToken(token: TokenType, values: number[], operators: string[], calculate: (operator: string) => void) {
     switch (token) {
       case Operator.Add:
@@ -118,6 +141,11 @@ export class FormulaEvaluator {
     }
   }
 
+  /**
+   * Performs a calculation based on the operator
+   * @param values - array of numerical values
+   * @param operator - the operator for the calculation
+   */
   calculate(values: number[], operator: string) {
     if (values.length === 0) {
       return;
@@ -154,6 +182,11 @@ export class FormulaEvaluator {
       }
     }
 
+  /**
+   * Retrieves the precedence of an operator
+   * @param operator - the operator to check
+   * @returns the precedence level of the operator
+   */
   getPrecedence(operator: string): number {
     switch (operator) {
       case Operator.Add:
@@ -167,16 +200,21 @@ export class FormulaEvaluator {
     }
   }
 
-
+  /**
+   * Getter for error message
+   * @returns the error message
+   */
   public get error(): string {
     return this._errorMessage
   }
 
+  /**
+   * Getter for result
+   * @returns the calculation result
+   */
   public get result(): number {
     return this._result;
   }
-
-
 
 
   /**
