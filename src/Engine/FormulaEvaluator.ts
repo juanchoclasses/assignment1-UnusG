@@ -2,8 +2,15 @@ import Cell from "./Cell"
 import SheetMemory from "./SheetMemory"
 import { ErrorMessages } from "./GlobalDefinitions";
 
+enum Operator {
+  Add = '+',
+  Subtract = '-',
+  Multiply = '*',
+  Divide = '/'
+}
 
-
+const PRECEDENCE_LOW = 1;
+const PRECEDENCE_HIGH = 2;
 export class FormulaEvaluator {
   // Define a function called update that takes a string parameter and returns a number
   private _errorOccured: boolean = false;
@@ -44,43 +51,122 @@ export class FormulaEvaluator {
    */
 
   evaluate(formula: FormulaType) {
-
-
     // set the this._result to the length of the formula
 
-    this._result = formula.length;
-    this._errorMessage = "";
+    this._errorMessage = ErrorMessages.emptyFormula;
+    this._result = 0;
 
-    switch (formula.length) {
-      case 0:
-        this._errorMessage = ErrorMessages.emptyFormula;
+    if (formula.length === 0) {
+      return;
+    }
+
+    const values: number[] = [];
+    const operators: string[] = [];
+    const calculate = this.calculate.bind(this, values);
+
+    for (const token of formula) {
+      if (this.isNumber(token)) {
+        values.push(Number(token));
+      } else if (this.isCellReference(token)) {
+        const [value, cellError] = this.getCellValue(token);
+        if (cellError) {
+          this._result = value;
+          this._errorMessage = cellError;
+          
+        } else {
+          values.push(value);
+        }
+      } else {
+        this.handleToken(token, values, operators, calculate);
+      }
+    }
+    while (operators.length) {
+      calculate(operators.pop()!);
+    }
+        
+    if (values.length === 1 && this._errorMessage !== ErrorMessages.invalidFormula) {
+      this._result = values[0];
+      this._errorMessage = "";
+    } else if (values.length === 0 && this._errorMessage === ErrorMessages.emptyFormula) {
+      this._result = 0;
+      this._errorMessage = ErrorMessages.missingParentheses;
+    } 
+  }
+
+  handleToken(token: TokenType, values: number[], operators: string[], calculate: (operator: string) => void) {
+    switch (token) {
+      case Operator.Add:
+      case Operator.Subtract:
+      case Operator.Multiply:
+      case Operator.Divide:
+        while (operators.length && this.getPrecedence(operators[operators.length - 1]) >= this.getPrecedence(token as string)) {
+          calculate(operators.pop()!);
+        }
+        operators.push(token as string);
         break;
-      case 7:
-        this._errorMessage = ErrorMessages.partial;
+      case '(':
+        operators.push(token as string);
         break;
-      case 8:
-        this._errorMessage = ErrorMessages.divideByZero;
-        break;
-      case 9:
-        this._errorMessage = ErrorMessages.invalidCell;
-        break;
-      case 10:
-        this._errorMessage = ErrorMessages.invalidFormula;
-        break;
-      case 11:
-        this._errorMessage = ErrorMessages.invalidNumber;
-        break;
-      case 12:
-        this._errorMessage = ErrorMessages.invalidOperator;
-        break;
-      case 13:
-        this._errorMessage = ErrorMessages.missingParentheses;
+      case ')':
+        while (operators.length && operators[operators.length - 1] !== '(') {
+          calculate(operators.pop()!);
+        }
+        operators.pop();
         break;
       default:
-        this._errorMessage = "";
-        break;
+        throw new Error(ErrorMessages.invalidFormula);
     }
   }
+
+  calculate(values: number[], operator: string) {
+    if (values.length === 0) {
+      return;
+    }
+    if (values.length < 2) {
+      this._errorMessage = ErrorMessages.invalidFormula;
+      this._result = values.pop()!;
+      return;
+
+    }
+    const right = values.pop()!;
+    const left = values.pop()!;
+
+    switch (operator) {
+      case Operator.Add:
+        values.push(left + right);
+        break;
+      case Operator.Subtract:
+        values.push(left - right);
+        break;
+      case Operator.Multiply:
+        values.push(left * right);
+        break;
+      case Operator.Divide:
+        if (right === 0) {
+          this._errorMessage = ErrorMessages.divideByZero;
+          this._result = Infinity;
+        } else {
+          values.push(left / right);
+        }
+        break;
+      default:
+        throw new Error(ErrorMessages.invalidFormula);
+      }
+    }
+
+  getPrecedence(operator: string): number {
+    switch (operator) {
+      case Operator.Add:
+      case Operator.Subtract:
+        return PRECEDENCE_LOW;
+      case Operator.Multiply:
+      case Operator.Divide:
+        return PRECEDENCE_HIGH;
+      default:
+        return 0;
+    }
+  }
+
 
   public get error(): string {
     return this._errorMessage
