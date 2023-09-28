@@ -315,6 +315,11 @@ export class SpreadSheetController {
     if (!userEditing) {
       return;
     }
+    if (!userEditing!.isEditing) {
+
+      return;
+
+    }
     if (userEditing.cellLabel === '') {
       return;
     }
